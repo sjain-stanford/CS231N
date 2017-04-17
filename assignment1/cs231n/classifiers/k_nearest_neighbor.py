@@ -95,7 +95,7 @@ class KNearestNeighbor(object):
       # Compute the l2 distance between the ith test point and all training #
       # points, and store the result in dists[i, :].                        #
       #######################################################################
-      dists[i, :] = np.sqrt(np.sum(np.square(X[i, :] - self.X_train), axis=1))
+      dists[i, :] = np.sqrt(np.sum(np.square(X[i, :] - self.X_train), axis=1))   # sum all columns, axis 1 (columns) reduces to 1
       #######################################################################
       #                         END OF YOUR CODE                            #
       #######################################################################
@@ -125,10 +125,10 @@ class KNearestNeighbor(object):
     #########################################################################
     # dists = sqrt(||A-B||**2)
     # ||A-B||**2 = ||A||**2 + ||B||**2 - 2*A*B  
-    A = X    # (Nte,D)  (test data)
-    B = self.X_train.T   # (D,Ntr)   (training data, transposed)
-    p = np.sum(np.square(A), axis=1, keepdims=True)  # (Nte,1) add the columns, axis 1 (columns) reduced to 1
-    q = np.sum(np.square(B), axis=0, keepdims=True)  # (1,Ntr) add the rows, axis 0 (rows) reduced to 1
+    A = X    # (Nte, D)  (test data)
+    B = self.X_train.T   # (D, Ntr)   (training data, transposed)
+    p = np.sum(np.square(A), axis=1, keepdims=True)  # (Nte, 1) add the columns, axis 1 (columns) reduced to 1
+    q = np.sum(np.square(B), axis=0, keepdims=True)  # (1, Ntr) add the rows, axis 0 (rows) reduced to 1
     r = 2*A.dot(B)   # (Nte,Ntr)
     dists = np.sqrt(p + q - r)   # Broadcast sum of numpy arrays
     #########################################################################
