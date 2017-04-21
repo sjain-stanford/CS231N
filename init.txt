@@ -1,5 +1,4 @@
 #### To setup on new instance
-
 git clone https://github.com/sjain-stanford/CS231N
 
 git config --global user.email "sambhav.eee@gmail.com"
@@ -16,17 +15,3 @@ c = get_config()
 c.NotebookApp.ip = '*'
 c.NotebookApp.open_browser = False
 c.NotebookApp.port = 7000
-
-
-# To push local changes to git repo
-git add *
-git commit -m "Comment"
-git push origin master
-
-# To fetch changes and overwrite if conflict
-git add *
-git commit -m "Comment"
-git fetch origin master
-git merge -s recursive -X theirs origin/master    # use 'their' changes if conflict
-git merge -s recursive -X your origin/master      # use 'your' changes if conflict
-
