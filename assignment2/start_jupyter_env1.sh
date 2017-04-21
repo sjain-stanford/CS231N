@@ -1,2 +1,2 @@
-source /home/cs231n/myVE35/bin/activate
+source ../assignment1/.env/bin/activate
 jupyter-notebook --no-browser --port=7000 &

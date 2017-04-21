@@ -1,8 +1,13 @@
+#### To setup on new instance
+
 git clone https://github.com/sjain-stanford/CS231N
 
 git config --global user.email "sambhav.eee@gmail.com"
 git config --global user.name "Sambhav Jain"
 
+# Source one of these envs
+source ../assignment1/.env/bin/activate
+source /home/cs231n/myVE35/bin/activate
 
 jupyter notebook ‐‐generate‐config
 
