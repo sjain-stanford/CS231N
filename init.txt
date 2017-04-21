@@ -1,0 +1,19 @@
+git clone https://github.com/sjain-stanford/CS231N
+
+git config --global user.email "sambhav.eee@gmail.com"
+git config --global user.name "Sambhav Jain"
+
+git config 
+jupyter notebook ‐‐generate‐config
+
+# Edit ~/.jupyter/jupyter_notebook_config.py to add this:
+c = get_config()
+c.NotebookApp.ip = '*'
+c.NotebookApp.open_browser = False
+c.NotebookApp.port = 7000
+
+
+git add .
+git commit -m "Comment"
+git push origin master
+
