@@ -172,7 +172,16 @@ def batchnorm_forward(x, gamma, beta, bn_param):
         # variance, storing your result in the running_mean and running_var   #
         # variables.                                                          #
         #######################################################################
-        pass
+        batch_mean = np.mean(x, axis=0)   # (D,)
+        x_centre = x - batch_mean   # (N, D)
+        batch_var = np.mean(x_centre ** 2, axis=0)   # (D,)
+        x_bar = x_centre / np.sqrt(batch_var + eps)   # (N, D)
+        out = gamma * x_bar + beta   # (N, D)
+        
+        running_mean = momentum * running_mean + (1 - momentum) * batch_mean
+        running_var = momentum * running_var + (1 - momentum) * batch_var
+        
+        cache = (x_bar, batch_var, x_centre, batch_mean, eps, gamma)
         #######################################################################
         #                           END OF YOUR CODE                          #
         #######################################################################
@@ -183,7 +192,8 @@ def batchnorm_forward(x, gamma, beta, bn_param):
         # then scale and shift the normalized data using gamma and beta.      #
         # Store the result in the out variable.                               #
         #######################################################################
-        pass
+        x_bar = (x - running_mean) / np.sqrt(running_var + eps)   # (N, D)
+        out = gamma * x_bar + beta
         #######################################################################
         #                          END OF YOUR CODE                           #
         #######################################################################
@@ -214,12 +224,23 @@ def batchnorm_backward(dout, cache):
     - dgamma: Gradient with respect to scale parameter gamma, of shape (D,)
     - dbeta: Gradient with respect to shift parameter beta, of shape (D,)
     """
+    x_bar, batch_var, x_centre, batch_mean, eps, gamma = cache
     dx, dgamma, dbeta = None, None, None
     ###########################################################################
     # TODO: Implement the backward pass for batch normalization. Store the    #
     # results in the dx, dgamma, and dbeta variables.                         #
     ###########################################################################
-    pass
+    N = dout.shape[0]
+    dbeta = (np.ones([1, N]).dot(dout)).flatten()   # (D,)
+    dgamma = (np.ones([1, N]).dot(dout * x_bar)).flatten()   # (D,)
+    dx_bar = dout * gamma   # (N, D)
+    dbatch_var = (np.ones([1, N]).dot(dx_bar * x_centre) * (- 1.0 / 2.0) * 
+                  (batch_var + eps) ** (-3.0 / 2.0)).flatten()   # (D,)
+    dx_centre = dx_bar * (1.0 / np.sqrt(batch_var + eps))   # (N, D)
+    dx_centre += dbatch_var * 2.0 * x_centre / N   # (N, D)
+    dbatch_mean = (-np.ones([1, N]).dot(dx_centre)).flatten()   # (D,)
+    dx = dbatch_mean * np.ones_like(dout) * (1.0 / N)   # (N, D)
+    dx += dx_centre   # (N, D)
     ###########################################################################
     #                             END OF YOUR CODE                            #
     ###########################################################################
@@ -240,6 +261,7 @@ def batchnorm_backward_alt(dout, cache):
 
     Inputs / outputs: Same as batchnorm_backward
     """
+    x_bar, batch_var, x_centre, batch_mean, eps, gamma = cache
     dx, dgamma, dbeta = None, None, None
     ###########################################################################
     # TODO: Implement the backward pass for batch normalization. Store the    #
@@ -249,7 +271,11 @@ def batchnorm_backward_alt(dout, cache):
     # should be able to compute gradients with respect to the inputs in a     #
     # single statement; our implementation fits on a single 80-character line.#
     ###########################################################################
-    pass
+    #N = dout.shape[0]
+    #dbeta = (np.ones([1, N]).dot(dout)).flatten()   # (D,)
+    #dgamma = (np.ones([1, N]).dot(dout * x_bar)).flatten()   # (D,)
+    #dx_bar = dout * gamma   # (N, D)
+    #dx = dx_bar * (1 - 1 / N) * (1 / np.sqrt(batch_var + eps)) * (1 - (1 / (batch_var + eps)) * (x_centre ** 2) * (1 / N))   # (N, D)
     ###########################################################################
     #                             END OF YOUR CODE                            #
     ###########################################################################

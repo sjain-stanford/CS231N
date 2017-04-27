@@ -6,6 +6,37 @@ from cs231n.layers import *
 from cs231n.layer_utils import *
 
 
+def affine_batchnorm_relu_forward(x, w, b, gamma, beta, bn_param):
+    """
+    Convenience layer that perorms an affine transform followed by a batchnorm and then ReLU
+
+    Inputs:
+    - x: Input to the affine layer
+    - w, b: Weights for the affine layer
+    - gamma, beta, bn_param: Inputs to the batchnorm layer
+
+    Returns a tuple of:
+    - out: Output from the ReLU
+    - cache: Object to give to the backward pass
+    """
+    fc_out, fc_cache = affine_forward(x, w, b)
+    bn_out, bn_cache = batchnorm_forward(fc_out, gamma, beta, bn_param)
+    out, relu_cache = relu_forward(bn_out)
+    cache = (fc_cache, bn_cache, relu_cache)
+    return out, cache
+
+
+def affine_batchnorm_relu_backward(dout, cache):
+    """
+    Backward pass for the affine-batchnorm-relu convenience layer
+    """
+    fc_cache, bn_cache, relu_cache = cache
+    dbn_out = relu_backward(dout, relu_cache)
+    dfc_out, dgamma, dbeta = batchnorm_backward(dbn_out, bn_cache)
+    dx, dw, db = affine_backward(dfc_out, fc_cache)
+    return dx, dw, db, dgamma, dbeta
+
+
 class TwoLayerNet(object):
     """
     A two-layer fully-connected neural network with ReLU nonlinearity and
@@ -174,9 +205,13 @@ class FullyConnectedNet(object):
         # parameters should be initialized to zero.                                #
         ############################################################################
         dims = [input_dim] + hidden_dims + [num_classes]
-        for i in np.arange(self.num_layers):
+        for i in range(self.num_layers):
             self.params['W'+str(i+1)] = weight_scale * np.random.randn(dims[i], dims[i+1])
             self.params['b'+str(i+1)] = np.zeros(dims[i+1])
+        if self.use_batchnorm:
+            for i in range(self.num_layers - 1):          
+                self.params['gamma'+str(i+1)] = np.ones(dims[i+1])
+                self.params['beta'+str(i+1)] = np.zeros(dims[i+1])
         ############################################################################
         #                             END OF YOUR CODE                             #
         ############################################################################
@@ -237,9 +272,13 @@ class FullyConnectedNet(object):
         out = {}
         cache = {}
         out[0] = X
-        for i in np.arange(self.num_layers):
+        for i in range(self.num_layers):
             if i != (self.num_layers-1):
-                out[i+1], cache[i+1] = affine_relu_forward(out[i], self.params['W'+str(i+1)], self.params['b'+str(i+1)])
+                if self.use_batchnorm:
+                    out[i+1], cache[i+1] = affine_batchnorm_relu_forward(out[i], self.params['W'+str(i+1)], self.params['b'+str(i+1)], \
+                                                      self.params['gamma'+str(i+1)], self.params['beta'+str(i+1)], self.bn_params[i])
+                else:
+                    out[i+1], cache[i+1] = affine_relu_forward(out[i], self.params['W'+str(i+1)], self.params['b'+str(i+1)])
             else:
                 out[i+1], cache[i+1] = affine_forward(out[i], self.params['W'+str(i+1)], self.params['b'+str(i+1)])
         scores = out[i+1]   
@@ -268,14 +307,18 @@ class FullyConnectedNet(object):
         dout = {}
         loss, dscores = softmax_loss(scores, y)
         
-        for i in np.arange(self.num_layers-1, -1 ,-1):
+        for i in range(self.num_layers-1, -1 ,-1):
             if i == (self.num_layers-1):
                 dout[i+1] = dscores
                 dout[i], grads['W'+str(i+1)], grads['b'+str(i+1)] = affine_backward(dout[i+1], cache[i+1])
             else:
-                dout[i], grads['W'+str(i+1)], grads['b'+str(i+1)] = affine_relu_backward(dout[i+1], cache[i+1])        
+                if self.use_batchnorm:
+                    dout[i], grads['W'+str(i+1)], grads['b'+str(i+1)], \
+                        grads['gamma'+str(i+1)], grads['beta'+str(i+1)] = affine_batchnorm_relu_backward(dout[i+1], cache[i+1])        
+                else:    
+                    dout[i], grads['W'+str(i+1)], grads['b'+str(i+1)] = affine_relu_backward(dout[i+1], cache[i+1])        
         
-        for i in np.arange(self.num_layers):
+        for i in range(self.num_layers):
             loss += 0.5 * self.reg * np.sum(self.params['W'+str(i+1)] ** 2)
             grads['W'+str(i+1)] += self.reg * self.params['W'+str(i+1)]
         ############################################################################
