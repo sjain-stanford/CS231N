@@ -271,14 +271,24 @@ class FullyConnectedNet(object):
         ############################################################################
         out = {}
         cache = {}
+        cache_drp = {}
         out[0] = X
+        
         for i in range(self.num_layers):
+            
+            # For all layers except the last layer
             if i != (self.num_layers-1):
                 if self.use_batchnorm:
                     out[i+1], cache[i+1] = affine_batchnorm_relu_forward(out[i], self.params['W'+str(i+1)], self.params['b'+str(i+1)], \
                                                       self.params['gamma'+str(i+1)], self.params['beta'+str(i+1)], self.bn_params[i])
                 else:
                     out[i+1], cache[i+1] = affine_relu_forward(out[i], self.params['W'+str(i+1)], self.params['b'+str(i+1)])
+                
+                # Adding dropout forward prop (if needed) after affine-<batchnorm>-relu
+                if self.use_dropout:
+                    out[i+1], cache_drp[i+1] = dropout_forward(out[i+1], self.dropout_param)                    
+            
+            # For the last layer
             else:
                 out[i+1], cache[i+1] = affine_forward(out[i], self.params['W'+str(i+1)], self.params['b'+str(i+1)])
         scores = out[i+1]   
@@ -308,18 +318,27 @@ class FullyConnectedNet(object):
         loss, dscores = softmax_loss(scores, y)
         
         for i in range(self.num_layers-1, -1 ,-1):
+            
+            # For the last layer
             if i == (self.num_layers-1):
                 dout[i+1] = dscores
                 dout[i], grads['W'+str(i+1)], grads['b'+str(i+1)] = affine_backward(dout[i+1], cache[i+1])
+            
             else:
+                # Adding dropout backprop (if needed) before affine-<batchnorm>-relu
+                if self.use_dropout:
+                    dout[i+1] = dropout_backward(dout[i+1], cache_drp[i+1])
+                    
                 if self.use_batchnorm:
                     dout[i], grads['W'+str(i+1)], grads['b'+str(i+1)], \
                         grads['gamma'+str(i+1)], grads['beta'+str(i+1)] = affine_batchnorm_relu_backward(dout[i+1], cache[i+1])        
                 else:    
-                    dout[i], grads['W'+str(i+1)], grads['b'+str(i+1)] = affine_relu_backward(dout[i+1], cache[i+1])        
+                    dout[i], grads['W'+str(i+1)], grads['b'+str(i+1)] = affine_relu_backward(dout[i+1], cache[i+1])
         
         for i in range(self.num_layers):
+            # Regularization loss
             loss += 0.5 * self.reg * np.sum(self.params['W'+str(i+1)] ** 2)
+            # Regularization componenet of gradient
             grads['W'+str(i+1)] += self.reg * self.params['W'+str(i+1)]
         ############################################################################
         #                             END OF YOUR CODE                             #
