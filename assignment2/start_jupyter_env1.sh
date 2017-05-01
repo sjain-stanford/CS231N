@@ -1,2 +1,2 @@
-source ../assignment1/.env/bin/activate
+source .env/bin/activate
 jupyter-notebook --no-browser --port=7000 &

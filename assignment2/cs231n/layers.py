@@ -561,8 +561,8 @@ def spatial_batchnorm_forward(x, gamma, beta, bn_param):
         old information is discarded completely at every time step, while
         momentum=1 means that new information is never incorporated. The
         default of momentum=0.9 should work well in most situations.
-      - running_mean: Array of shape (D,) giving running mean of features
-      - running_var Array of shape (D,) giving running variance of features
+      - running_mean: Array of shape (C,) giving running mean of features
+      - running_var Array of shape (C,) giving running variance of features
 
     Returns a tuple of:
     - out: Output data, of shape (N, C, H, W)
@@ -577,7 +577,12 @@ def spatial_batchnorm_forward(x, gamma, beta, bn_param):
     # version of batch normalization defined above. Your implementation should#
     # be very short; ours is less than five lines.                            #
     ###########################################################################
-    pass
+    N, C, H, W = x.shape
+    x_T = x.transpose(2, 3, 0, 1)    # (H, W, N, C)
+    x_flat = x_T.reshape(-1, C)    # (H*W*N, C)    
+    out_flat, cache = batchnorm_forward(x_flat, gamma, beta, bn_param)
+    out_T = out_flat.reshape(H, W, N, C)    # (H, W, N, C)
+    out = out_T.transpose(2, 3, 0, 1)    # (N, C, H, W)
     ###########################################################################
     #                             END OF YOUR CODE                            #
     ###########################################################################
@@ -607,7 +612,12 @@ def spatial_batchnorm_backward(dout, cache):
     # version of batch normalization defined above. Your implementation should#
     # be very short; ours is less than five lines.                            #
     ###########################################################################
-    pass
+    N, C, H, W = dout.shape
+    dout_T = dout.transpose(2, 3, 0, 1)    # (H, W, N, C)
+    dout_flat = dout_T.reshape(-1, C)    # (H*W*N, C)
+    dx_flat, dgamma, dbeta = batchnorm_backward(dout_flat, cache)
+    dx_T = dx_flat.reshape(H, W, N, C)    # (H, W, N, C)
+    dx = dx_T.transpose(2, 3, 0, 1)    # (N, C, H, W)
     ###########################################################################
     #                             END OF YOUR CODE                            #
     ###########################################################################
