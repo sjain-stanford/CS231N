@@ -148,16 +148,26 @@ class CaptioningRNN(object):
             # Forward pass
             # (3) Vanilla RNN to process the sequence of input word vectors and produce hidden state vectors for all timesteps
             h, cache_rnn = rnn_forward(x, h0, Wx, Wh, b)   # h.shape = (N, T, H)
+        
+        elif self.cell_type == 'lstm':
+            # Forward pass
+            # (3) LSTM RNN to process the sequence of input word vectors and produce hidden state vectors for all timesteps
+            h, cache_lstm = lstm_forward(x, h0, Wx, Wh, b)   # h.shape = (N, T, H)
             
-            # (4) Temporal affine transformation to compute scores over the vocabulary at every timestep using the hidden states
-            scores, cache_aff = temporal_affine_forward(h, W_vocab, b_vocab)    # scores.shape = (N, T, V)
+        # (4) Temporal affine transformation to compute scores over the vocabulary at every timestep using the hidden states
+        scores, cache_aff = temporal_affine_forward(h, W_vocab, b_vocab)    # scores.shape = (N, T, V)
+           
+        # (5) Temporal softmax to compute loss using captions_out
+        loss, dscores = temporal_softmax_loss(scores, captions_out, mask, verbose=False)
             
-            # (5) Temporal softmax to compute loss using captions_out
-            loss, dscores = temporal_softmax_loss(scores, captions_out, mask, verbose=False)
-            
-            # Backward pass
-            dh, dW_vocab, db_vocab = temporal_affine_backward(dscores, cache_aff)
+        # Backward pass
+        dh, dW_vocab, db_vocab = temporal_affine_backward(dscores, cache_aff)
+        
+        if self.cell_type == 'rnn':        
             dx, dh0, dWx, dWh, db = rnn_backward(dh, cache_rnn)
+            
+        elif self.cell_type == 'lstm':
+            dx, dh0, dWx, dWh, db = lstm_backward(dh, cache_lstm)
             
         # Backward pass
         dW_embed = word_embedding_backward(dx, cache_wvec)
@@ -238,28 +248,33 @@ class CaptioningRNN(object):
         
         word_in = self._start * np.ones((N, 1), dtype=np.int32) # (N, 1)  (first timestep alone, unlike captions (N, T) for T timesteps)
         prev_h = h0    # (N, H)
+        prev_c = np.zeros_like(prev_h)    # (N, H)
         
         for t in range(max_length):
             # (1) Embed the previous N words using the learned word embeddings
             x, _ = word_embedding_forward(word_in, W_embed)   # x.shape = (N, 1, W)
             
+            # (2) RNN step using the previous hidden state and the embedded current word to get the next hidden state
+            x_flat = x.reshape([N, -1])    # (N, W)
             if self.cell_type == 'rnn':
-                # (2) RNN step using the previous hidden state and the embedded current word to get the next hidden state
-                x_flat = x.reshape([N, -1])    # (N, W)
                 next_h_flat, _ = rnn_step_forward(x_flat, prev_h, Wx, Wh, b)   # (N, H)
+                
+            elif self.cell_type == 'lstm':
+                next_h_flat, next_c_flat, _ = lstm_step_forward(x_flat, prev_h, prev_c, Wx, Wh, b)    # (N, H)
+                        
+            # (3) Learned affine transformation on the next hidden state to get scores for all words in the vocabulary
+            next_h = next_h_flat.reshape([N, 1, -1])    # (N, 1, H)
+            scores, _ = temporal_affine_forward(next_h, W_vocab, b_vocab)    # (N, 1, V)                
+                
+            # (4) Select the word with the highest score as the next word, and assign to captions
+            scores = scores.reshape([N, -1])    # (N, V)
+            word_out = np.argmax(scores, axis=1)    # (N,)
+            captions[:, t] = word_out
             
-                # (3) Learned affine transformation on the next hidden state to get scores for all words in the vocabulary
-                next_h = next_h_flat.reshape([N, 1, -1])    # (N, 1, H)
-                scores, _ = temporal_affine_forward(next_h, W_vocab, b_vocab)    # (N, 1, V)                
-                
-                # (4) Select the word with the highest score as the next word, and assign to captions
-                scores = scores.reshape([N, -1])    # (N, V)
-                word_out = np.argmax(scores, axis=1)    # (N,)                
-                captions[:, t] = word_out
-                
-                # Move to next timestep
-                word_in = word_out
-                prev_h = next_h_flat
+            # Move to next timestep
+            word_in = word_out
+            prev_h = next_h_flat
+            prev_c = next_c_flat
         ############################################################################
         #                             END OF YOUR CODE                             #
         ############################################################################
