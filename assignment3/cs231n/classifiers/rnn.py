@@ -137,7 +137,41 @@ class CaptioningRNN(object):
         # defined above to store loss and gradients; grads[k] should give the      #
         # gradients for self.params[k].                                            #
         ############################################################################
-        pass
+        # Forward pass        
+        # (1) Affine transformation to compute the initial hidden state from the image features
+        h0 = features.dot(W_proj) + b_proj    # (N, H)
+        
+        # (2) Word embedding layer to transform the words in captions_in from indices to vectors
+        x, cache_wvec = word_embedding_forward(captions_in, W_embed)   # x.shape = (N, T, W)
+        
+        if self.cell_type == 'rnn':
+            # Forward pass
+            # (3) Vanilla RNN to process the sequence of input word vectors and produce hidden state vectors for all timesteps
+            h, cache_rnn = rnn_forward(x, h0, Wx, Wh, b)   # h.shape = (N, T, H)
+            
+            # (4) Temporal affine transformation to compute scores over the vocabulary at every timestep using the hidden states
+            scores, cache_aff = temporal_affine_forward(h, W_vocab, b_vocab)    # scores.shape = (N, T, V)
+            
+            # (5) Temporal softmax to compute loss using captions_out
+            loss, dscores = temporal_softmax_loss(scores, captions_out, mask, verbose=False)
+            
+            # Backward pass
+            dh, dW_vocab, db_vocab = temporal_affine_backward(dscores, cache_aff)
+            dx, dh0, dWx, dWh, db = rnn_backward(dh, cache_rnn)
+            
+        # Backward pass
+        dW_embed = word_embedding_backward(dx, cache_wvec)
+        dW_proj = (features.T).dot(dh0)    # (D, H)
+        db_proj = np.sum(dh0, axis=0)    # (H,)
+        
+        grads['W_embed'] = dW_embed
+        grads['W_proj'] = dW_proj
+        grads['b_proj'] = db_proj
+        grads['Wx'] = dWx
+        grads['Wh'] = dWh
+        grads['b'] = db
+        grads['W_vocab'] = dW_vocab
+        grads['b_vocab'] = db_vocab
         ############################################################################
         #                             END OF YOUR CODE                             #
         ############################################################################
@@ -199,7 +233,33 @@ class CaptioningRNN(object):
         # functions; you'll need to call rnn_step_forward or lstm_step_forward in #
         # a loop.                                                                 #
         ###########################################################################
-        pass
+        # (0) Learned affine transform to compute the initial hidden state from the image features
+        h0 = features.dot(W_proj) + b_proj    # (N, H)
+        
+        word_in = self._start * np.ones((N, 1), dtype=np.int32) # (N, 1)  (first timestep alone, unlike captions (N, T) for T timesteps)
+        prev_h = h0    # (N, H)
+        
+        for t in range(max_length):
+            # (1) Embed the previous N words using the learned word embeddings
+            x, _ = word_embedding_forward(word_in, W_embed)   # x.shape = (N, 1, W)
+            
+            if self.cell_type == 'rnn':
+                # (2) RNN step using the previous hidden state and the embedded current word to get the next hidden state
+                x_flat = x.reshape([N, -1])    # (N, W)
+                next_h_flat, _ = rnn_step_forward(x_flat, prev_h, Wx, Wh, b)   # (N, H)
+            
+                # (3) Learned affine transformation on the next hidden state to get scores for all words in the vocabulary
+                next_h = next_h_flat.reshape([N, 1, -1])    # (N, 1, H)
+                scores, _ = temporal_affine_forward(next_h, W_vocab, b_vocab)    # (N, 1, V)                
+                
+                # (4) Select the word with the highest score as the next word, and assign to captions
+                scores = scores.reshape([N, -1])    # (N, V)
+                word_out = np.argmax(scores, axis=1)    # (N,)                
+                captions[:, t] = word_out
+                
+                # Move to next timestep
+                word_in = word_out
+                prev_h = next_h_flat
         ############################################################################
         #                             END OF YOUR CODE                             #
         ############################################################################

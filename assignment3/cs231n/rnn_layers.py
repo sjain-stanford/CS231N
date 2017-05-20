@@ -37,7 +37,7 @@ def rnn_step_forward(x, prev_h, Wx, Wh, b):
     h_int = x.dot(Wx) + prev_h.dot(Wh) + b    # (N, H)
     next_h = np.tanh(h_int)    # (N, H)
     
-    cache = (x, prev_h, Wx, Wh, next_h)
+    cache = x, prev_h, Wx, Wh, next_h
     ##############################################################################
     #                               END OF YOUR CODE                             #
     ##############################################################################
@@ -191,7 +191,8 @@ def word_embedding_forward(x, W):
     #                                                                            #
     # HINT: This can be done in one line using NumPy's array indexing.           #
     ##############################################################################
-    pass
+    out = W[x]
+    cache = x, W.shape[0]
     ##############################################################################
     #                               END OF YOUR CODE                             #
     ##############################################################################
@@ -220,7 +221,13 @@ def word_embedding_backward(dout, cache):
     # Note that Words can appear more than once in a sequence.                   #
     # HINT: Look up the function np.add.at                                       #
     ##############################################################################
-    pass
+    x, V = cache    
+    _, _, D = dout.shape    
+    dW = np.zeros([V, D])
+    
+    # Upstream gradient (dout) flows through the "right" positions of the weight matrix
+    # Hence at each x (0 <= integer < V) position in dW, add the corresponding dout
+    np.add.at(dW, x, dout)
     ##############################################################################
     #                               END OF YOUR CODE                             #
     ##############################################################################
